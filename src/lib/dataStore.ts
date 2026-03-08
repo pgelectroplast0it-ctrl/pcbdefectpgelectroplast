@@ -38,6 +38,57 @@ export function deleteDefectReport(id: string): void {
   const reports = getDefectReports().filter(r => r.id !== id);
   localStorage.setItem(DEFECTS_KEY, JSON.stringify(reports));
 }
+// ================= FILTER REPORTS =================
+
+export function filterReports(
+  reports: DefectReport[],
+  filters: { plant?: Plant; location?: Location; line?: Line }
+): DefectReport[] {
+
+  return reports.filter((r) => {
+
+    if (filters.plant && r.plant !== filters.plant) return false;
+
+    if (filters.location && r.location !== filters.location) return false;
+
+    if (filters.line && r.line !== filters.line) return false;
+
+    return true;
+  });
+
+}
+
+
+// ================= AVG DAILY =================
+
+export function getAvgDaily(reports: DefectReport[]): number {
+
+  if (reports.length === 0) return 0;
+
+  const first = new Date(reports[reports.length - 1].timestamp);
+  const last = new Date(reports[0].timestamp);
+
+  const days =
+    Math.max(
+      1,
+      Math.ceil((last.getTime() - first.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+  return Math.round(reports.length / days);
+}
+
+
+// ================= DEFECT PERCENTAGE =================
+
+export function getDefectPercentage(
+  defects: DefectReport[],
+  totalUnits: number
+): number {
+
+  if (totalUnits === 0) return 0;
+
+  return Math.round((defects.length / totalUnits) * 100);
+}
 
 
 // ===== FETCH REPORTS FROM GOOGLE SHEET =====
