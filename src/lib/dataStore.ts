@@ -305,3 +305,147 @@ export function getThisMonthCount(reports: DefectReport[]): number {
 
   }).length;
 }
+
+export function filterReports(
+  reports: DefectReport[],
+  filters: { plant?: Plant; location?: Location; line?: Line }
+): DefectReport[] {
+  return reports.filter(r => {
+    if (filters.plant && r.plant !== filters.plant) return false;
+    if (filters.location && r.location !== filters.location) return false;
+    if (filters.line && r.line !== filters.line) return false;
+    return true;
+  });
+}
+
+export function getAvgDaily(reports: DefectReport[]): number {
+  if (reports.length === 0) return 0;
+  const days = new Set(reports.map(r => new Date(r.timestamp).toDateString()));
+  return Math.round(reports.length / days.size);
+}
+
+export function getDefectPercentage(reports: DefectReport[], total: number): string {
+  if (total === 0) return "0.0";
+  return ((reports.length / total) * 100).toFixed(1);
+}
+
+
+// ================= EMPLOYEE SESSION =================
+
+export function getEmployeeSession(): EmployeeSession | null {
+  const stored = localStorage.getItem(EMPLOYEE_SESSION_KEY);
+  if (!stored) return null;
+  const session: EmployeeSession = JSON.parse(stored);
+  if (Date.now() > session.expiresAt) {
+    localStorage.removeItem(EMPLOYEE_SESSION_KEY);
+    return null;
+  }
+  return session;
+}
+
+export function setEmployeeSession(session: EmployeeSession): void {
+  localStorage.setItem(EMPLOYEE_SESSION_KEY, JSON.stringify(session));
+}
+
+export function clearEmployeeSession(): void {
+  localStorage.removeItem(EMPLOYEE_SESSION_KEY);
+}
+
+
+// ================= EMPLOYEE REQUESTS (admin-scoped) =================
+
+export function getEmployeeRequestsForAdmin(adminEmail: string): EmployeeRequest[] {
+  return getEmployeeRequests().filter(r => r.assignedAdminEmail === adminEmail);
+}
+
+export function getApprovedEmployee(email: string, employeeId: string): EmployeeRequest | null {
+  const match = getEmployeeRequests().find(
+    r => r.email === email && r.employeeId === employeeId && r.status === "approved"
+  );
+  return match ?? null;
+}
+
+
+// ================= EMPLOYEE USERS =================
+
+function getEmployeeUsers(): EmployeeUser[] {
+  const stored = localStorage.getItem(EMPLOYEE_USERS_KEY);
+  if (stored) return JSON.parse(stored);
+  return [];
+}
+
+export function getEmployeeUsersByAdmin(adminEmail: string): EmployeeUser[] {
+  return getEmployeeUsers().filter(u => u.createdByAdminEmail === adminEmail);
+}
+
+export function addEmployeeUser(user: EmployeeUser): void {
+  const users = getEmployeeUsers();
+  users.push(user);
+  localStorage.setItem(EMPLOYEE_USERS_KEY, JSON.stringify(users));
+}
+
+export function deleteEmployeeUser(id: string): void {
+  const users = getEmployeeUsers().filter(u => u.id !== id);
+  localStorage.setItem(EMPLOYEE_USERS_KEY, JSON.stringify(users));
+}
+
+export function authenticateEmployee(employeeId: string, password: string): EmployeeUser | null {
+  const user = getEmployeeUsers().find(
+    u => u.employeeId === employeeId && u.password === password
+  );
+  return user ?? null;
+}
+
+export function markEmployeeHasLoggedIn(employeeId: string): void {
+  const users = getEmployeeUsers().map(u =>
+    u.employeeId === employeeId ? { ...u, hasLoggedInBefore: true } : u
+  );
+  localStorage.setItem(EMPLOYEE_USERS_KEY, JSON.stringify(users));
+}
+
+
+// ================= SESSION EXTENSION REQUESTS =================
+
+function getSessionExtensionRequests(): SessionExtensionRequest[] {
+  const stored = localStorage.getItem(SESSION_REQUESTS_KEY);
+  if (stored) return JSON.parse(stored);
+  return [];
+}
+
+export function getSessionRequestsForAdmin(adminEmail: string): SessionExtensionRequest[] {
+  return getSessionExtensionRequests().filter(r => r.createdByAdminEmail === adminEmail);
+}
+
+export function addSessionExtensionRequest(req: SessionExtensionRequest): void {
+  const requests = getSessionExtensionRequests();
+  requests.push(req);
+  localStorage.setItem(SESSION_REQUESTS_KEY, JSON.stringify(requests));
+}
+
+export function approveSessionExtensionRequest(id: string): void {
+  const requests = getSessionExtensionRequests().map(r =>
+    r.id === id ? { ...r, status: "approved" as const, approvedAt: new Date().toISOString() } : r
+  );
+  localStorage.setItem(SESSION_REQUESTS_KEY, JSON.stringify(requests));
+}
+
+export function getPendingSessionRequestForEmployee(employeeId: string): SessionExtensionRequest | null {
+  const req = getSessionExtensionRequests().find(
+    r => r.employeeId === employeeId && r.status === "pending"
+  );
+  return req ?? null;
+}
+
+export function getApprovedSessionRequestForEmployee(employeeId: string): SessionExtensionRequest | null {
+  const req = getSessionExtensionRequests().find(
+    r => r.employeeId === employeeId && r.status === "approved"
+  );
+  return req ?? null;
+}
+
+export function consumeApprovedSessionRequest(employeeId: string): void {
+  const requests = getSessionExtensionRequests().filter(
+    r => !(r.employeeId === employeeId && r.status === "approved")
+  );
+  localStorage.setItem(SESSION_REQUESTS_KEY, JSON.stringify(requests));
+}
